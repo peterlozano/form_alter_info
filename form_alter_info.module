@@ -1,0 +1,88 @@
+<?php
+
+/**
+ * @file
+ * Module functions.
+ */
+
+/**
+ * Implements hook_form_alter().
+ */
+function form_alter_info_form_alter(&$form, &$form_state, $form_id) {
+  if (user_access('access devel information')) {
+    $enabled = variable_get('form_alter_info_enabled', FALSE);
+
+    if ($enabled) {
+      $info = array();
+      $info['form_id'] = $form_id;
+      $info['form'] = $form;
+
+      // Collect alter hooks names to be called.
+      $hooks = array('form');
+      if (isset($form_state['build_info']['base_form_id'])) {
+        $hooks[] = 'form_' . $form_state['build_info']['base_form_id'];
+      }
+      $hooks[] = 'form_' . $form_id;
+
+      // Collect existing implementations for those hooks.
+      $functions = array();
+      foreach ($hooks as $base) {
+        $hook = $base . '_alter';
+
+        $functions[$hook] = array();
+
+        $modules = module_implements($hook);
+        foreach ($modules as $module) {
+          $functions[$hook][] = $module . '_' . $hook;
+        }
+      }
+      $info['hooks_called'] = $functions;
+
+      // Call all the hooks to check which ones modify the form.
+      foreach ($functions as $hook => $hook_functions) {
+        foreach ($hook_functions as $function) {
+          if (function_exists($function)) {
+            // Avoid infinite recursion.
+            if ($function != 'form_alter_info_form_alter') {
+              $form_copy = $form;
+              $form_state_copy = $form_state;
+
+              // Call the altering function.
+              $function($form_copy, $form_state_copy, $form_id);
+
+              // Check for differences.
+              $diff = drupal_array_diff_assoc_recursive($form_copy, $form);
+
+              // Collect info about hooks altering the form.
+              if (!empty($diff)) {
+                $info['hooks_altering'][$hook][$function] = array(
+                  'array_diff' => $diff,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      dpm($info, t('Form info for @form_id', array('@form_id' => $form_id)), 'info');
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function form_alter_info_form_devel_admin_settings_alter(&$form, &$form_state, $form_id) {
+  $form['form_alter_info'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Form alter info'),
+    '#collapsible' => FALSE,
+  );
+
+  $form['form_alter_info']['form_alter_info_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display form alter info'),
+    '#default_value' => variable_get('form_alter_info_enabled', FALSE),
+    '#description' => t('For each form displayed on the page this feature displays info about all hooks that are been called and the ones altering the form.'),
+  );
+}
