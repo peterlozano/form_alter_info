@@ -72,7 +72,7 @@ function form_alter_info_form_alter(&$form, &$form_state, $form_id) {
 /**
  * Implements hook_form_FORM_ID_alter().
  */
-function form_alter_info_form_devel_admin_settings_alter(&$form, &$form_state, $form_id) {
+function form_alter_info_form_devel_admin_settings_alter(&$form, &$form_state) {
   $form['form_alter_info'] = array(
     '#type' => 'fieldset',
     '#title' => t('Form alter info'),
@@ -85,4 +85,44 @@ function form_alter_info_form_devel_admin_settings_alter(&$form, &$form_state, $
     '#default_value' => variable_get('form_alter_info_enabled', FALSE),
     '#description' => t('For each form displayed on the page this feature displays info about all hooks that are been called and the ones altering the form.'),
   );
+}
+
+/**
+ * Recursively computes the difference of arrays with additional index check.
+ *
+ * This is a version of array_diff_assoc() that supports multidimensional
+ * arrays.
+ *
+ * Copied from Drupal 7.
+ *
+ * @param array $array1
+ *   The array to compare from.
+ * @param array $array2
+ *   The array to compare to.
+ *
+ * @return array
+ *   Returns an array containing all the values from array1 that are not present
+ *   in array2.
+ */
+function drupal_array_diff_assoc_recursive($array1, $array2) {
+  $difference = array();
+
+  foreach ($array1 as $key => $value) {
+    if (is_array($value)) {
+      if (!array_key_exists($key, $array2) || !is_array($array2[$key])) {
+        $difference[$key] = $value;
+      }
+      else {
+        $new_diff = drupal_array_diff_assoc_recursive($value, $array2[$key]);
+        if (!empty($new_diff)) {
+          $difference[$key] = $new_diff;
+        }
+      }
+    }
+    elseif (!array_key_exists($key, $array2) || $array2[$key] !== $value) {
+      $difference[$key] = $value;
+    }
+  }
+
+  return $difference;
 }

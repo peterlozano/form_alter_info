@@ -1,4 +1,4 @@
 name = Form Info
 description = Development module providing form alter hooks information.
-core = 7.x
+core = 6.x
 dependencies[] = devel
